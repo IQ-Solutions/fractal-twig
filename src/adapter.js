@@ -9,6 +9,16 @@ const glob = require('glob');
 const utils = Fractal.utils;
 const Attributes = require('./attributes');
 
+/**
+ * Returns the component-libraries configuration from the theme info file.
+*/
+function getComponentLibraries() {
+    const doc = yaml.safeLoad(fs.readFileSync(glob.sync('*.info.yml').toString()));
+    const namespaces = doc?.components?.namespaces || {};
+
+    return namespaces;
+}
+
 class TwigAdapter extends Fractal.Adapter {
 
     constructor(Twig, source, app, config) {
@@ -31,7 +41,10 @@ class TwigAdapter extends Fractal.Adapter {
                     return new Twig.Template(params);
                 }
 
-                let view = findView(location, source.fullPath);
+                let view = findView(location, [
+                    source.fullPath,
+                    process.cwd(),
+                ]);
 
                 if (!view) {
                     throw new Error(`Template ${location} not found`);
@@ -163,30 +176,21 @@ class TwigAdapter extends Fractal.Adapter {
         }
 
         /**
-         * Returns the component-libraries configuration from the theme info file.
-         */
-        function getComponentLibraries() {
-            try {
-                let doc = yaml.safeLoad(fs.readFileSync(glob.sync('*.info.yml').toString()));
-                let libraries = doc['component-libraries'];
-
-                return libraries;
-            }
-            catch (e) {
-                throw new Error(e);
-            }
-        }
-
-        /**
          * Returns the file template paths while respecting the registered
          * component-libraries handles.
          */
-        function _preparePaths(location, sourcePath) {
-            let libraries = getComponentLibraries();
-            let basename = Path.parse(location).name;
+        function _preparePaths(location, sourcePaths) {
+            const libraries = getComponentLibraries();
+            const basename = Path.parse(location).name;
             let handle = basename;
-            let handlePrefix = self._config.handlePrefix;
-            let paths = [];
+
+            const handlePrefix = self._config.handlePrefix;
+            const filePath = location.indexOf(handlePrefix) !== -1 ?
+                location.replace(handlePrefix, '') :
+                location;
+
+            const paths = sourcePaths.map((sourcePath) => Path.resolve(sourcePath, filePath));
+
 
             if (basename.indexOf(handlePrefix) !== 0) {
                 handle = handlePrefix + basename;
@@ -195,32 +199,19 @@ class TwigAdapter extends Fractal.Adapter {
             if (!libraries) {
               throw new Error('Component libraries could not be found.');
             }
-            for (let library in libraries) {
-                let name = handlePrefix + library;
-                let path = libraries[library].paths[0];
-                let baseDir = Path.dirname(path);
-                if (baseDir !== '/') {
-                  sourcePath = sourcePath.replace(baseDir, '');
-                }
-                // @handle
-                paths.push(handle);
-                // @handle/custom-twig
-                paths.push(location);
-                // @handle/custom-twig/collection--variant => @handle/collection--variant
-                paths.push(name + '/' + basename);
-                // path/to/custom-twig.twig
-                paths.push(Path.join(sourcePath, location));
-                // @handle/onto/path/to/file.twig => absolute/path/to/file.twig
-                paths.push(Path.join(sourcePath, location.replace(name, path)));
-                // @handle/to/collection => absolute/path/to/collection/collection.twig
-                paths.push(Path.join(sourcePath, location.replace(name, ''), basename + '.twig'));
-            }
+
+            paths.push(...Object.keys(libraries).reduce((acc, library) => {
+                const path = libraries[library];
+
+                acc.push(...sourcePaths.map((sourcePath) => Path.resolve(sourcePath, filePath.replace(`@${library}`, path))));
+                return acc;
+            }, []));
 
             return paths;
         }
 
-        function findView(location, sourcePath) {
-            let paths = _preparePaths(location, sourcePath);
+        function findView(location, sourcePaths) {
+            let paths = _preparePaths(location, sourcePaths);
             let view;
 
             for (let i = 0; i < paths.length; i++) {
@@ -271,14 +262,24 @@ class TwigAdapter extends Fractal.Adapter {
 
         return new Promise(function(resolve, reject){
 
-            let tplPath = Path.relative(self._source.fullPath, path);
+            let tplPath = Path.relative(self._config.drupalRoot, path);
+
+            // Replace paths with namespaces
+            const namespaces = getComponentLibraries();
+
+            Object.keys(namespaces).forEach((namespace) => {
+                const namespacePath = namespaces[namespace];
+                if (tplPath.indexOf(namespacePath) !== -1) {
+                    tplPath = tplPath.replace(namespacePath, `@${namespace}`);
+                }
+            });
 
             try {
                 let template = self.engine.twig({
                     method: 'fractal',
                     async: false,
                     rethrow: true,
-                    name: meta.self ? `${self._config.handlePrefix}${meta.self.handle}` : tplPath,
+                    name: tplPath,
                     precompiled: str
                 });
                 resolve(template.render(context));
