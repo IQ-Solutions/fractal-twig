@@ -3,10 +3,10 @@ const _ = require('lodash');
 
 module.exports = function (fractal) {
     const translate = function (str) {
-        const l18n = fractal.components.engine()._config.l18n || null;
-        const parser = l18n.parser || null;
-        const textdomain = l18n.textdomain || '';
-        if (parser && parser.translations.hasOwnProperty(textdomain)) {
+        const l18n = fractal.components.engine()._config?.l18n || null;
+        const parser = l18n?.parser || null;
+        const textdomain = l18n?.textdomain || '';
+        if (parser && parser?.translations?.textdomain) {
             const translation = parser.translations[textdomain][str];
             if (translation !== undefined) {
                 str = translation.msgstr[0];
