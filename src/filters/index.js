@@ -1,6 +1,14 @@
 'use strict';
 const _ = require('lodash');
 
+const replacements = {
+    ' ': '-',
+    '_': '-',
+    '/': '-',
+    '[': '-',
+    ']': '',
+};
+
 module.exports = function (fractal) {
     const translate = function (str) {
         const l18n = fractal.components.engine()._config?.l18n || null;
@@ -14,6 +22,17 @@ module.exports = function (fractal) {
         }
         return str;
     }
+    const cleanClass = function (str) {
+        if (!str) {
+            return str;
+        }
+
+        return Object.keys(replacements).reduce((acc, source) => {
+            const replace = replacements[source];
+
+            return acc.replaceAll(source, replace);
+        }, str);
+    }
     return {
         trans(str) {
             return translate(str);
@@ -23,6 +42,9 @@ module.exports = function (fractal) {
         },
         field_value(str) {
             return str;
+        },
+        clean_class(str) {
+            return cleanClass(str);
         },
         without(element, exclude_elements) {
             var filtered_element = _.cloneDeep(element);

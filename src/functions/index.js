@@ -19,6 +19,10 @@ module.exports = function (fractal) {
             }
             let attr = new Attributes(attributes);
             return `<${tag}${attr}>${text}</${tag}>`;
+        },
+        create_attribute(attributes = {}) {
+            const newAttributes = attributes || {};
+            return new Attributes(newAttributes);
         }
     }
 

@@ -101,8 +101,11 @@ class TwigAdapter extends Fractal.Adapter {
                             //   monkey-patch the mergeDefaults() method to apply a
                             //   special behavior for the .class property within context
                             //   variables whose name contain 'attributes'.
-                            if (!entity.isDefault) {
-                              let defaultContext = entity.parent.variants().default().getContext();
+                            if (entity.isDefault === false) {
+                              let defaultContext = {};
+                              if (entity?.parent?.variants) {
+                                defaultContext = entity.parent.variants().default().getContext();
+                              }
                               _.forEach(defaultContext, function (value, name) {
                                 if (name.indexOf('attributes') > -1) {
                                   if (defaultContext[name] !== undefined && defaultContext[name].class !== undefined) {
@@ -262,24 +265,24 @@ class TwigAdapter extends Fractal.Adapter {
 
         return new Promise(function(resolve, reject){
 
-            let tplPath = Path.relative(self._config.drupalRoot, path);
+            let tplPath = Path.relative(self._source.fullPath, path);
 
             // Replace paths with namespaces
             const namespaces = getComponentLibraries();
 
-            Object.keys(namespaces).forEach((namespace) => {
-                const namespacePath = namespaces[namespace];
-                if (tplPath.indexOf(namespacePath) !== -1) {
-                    tplPath = tplPath.replace(namespacePath, `@${namespace}`);
-                }
-            });
+            // Object.keys(namespaces).forEach((namespace) => {
+            //     const namespacePath = namespaces[namespace];
+            //     if (tplPath.indexOf(namespacePath) !== -1) {
+            //         tplPath = tplPath.replace(namespacePath, `@${namespace}`);
+            //     }
+            // });
 
             try {
                 let template = self.engine.twig({
                     method: 'fractal',
                     async: false,
                     rethrow: true,
-                    name: tplPath,
+                    name: meta.self ? `${self._config.handlePrefix}${meta.self.handle}` : tplPath,
                     precompiled: str
                 });
                 resolve(template.render(context));
