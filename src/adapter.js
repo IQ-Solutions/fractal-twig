@@ -270,20 +270,14 @@ class TwigAdapter extends Fractal.Adapter {
             // Replace paths with namespaces
             const namespaces = getComponentLibraries();
 
-            // Object.keys(namespaces).forEach((namespace) => {
-            //     const namespacePath = namespaces[namespace];
-            //     if (tplPath.indexOf(namespacePath) !== -1) {
-            //         tplPath = tplPath.replace(namespacePath, `@${namespace}`);
-            //     }
-            // });
-
             try {
                 let template = self.engine.twig({
                     method: 'fractal',
                     async: false,
                     rethrow: true,
                     name: meta.self ? `${self._config.handlePrefix}${meta.self.handle}` : tplPath,
-                    precompiled: str
+                    precompiled: str,
+                    namespaces,
                 });
                 resolve(template.render(context));
             } catch (e) {
