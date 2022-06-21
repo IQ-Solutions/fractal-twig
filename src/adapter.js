@@ -303,12 +303,11 @@ module.exports = function(config) {
         importContext: false
     });
 
+    const Twig = require('twig');
+
     return {
-
+        Twig,
         register(source, app) {
-
-            const Twig = require('twig');
-
             if (!config.pristine) {
                 _.each(require('./functions')(app) || {}, function(func, name){
                     Twig.extendFunction(name, func);
